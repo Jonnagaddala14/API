@@ -18,6 +18,8 @@ dotnet test
 | GET | `/api/users/{id}` | A random user with the given id |
 | GET | `/api/quote` | A random quote |
 | GET | `/api/weather/{city}` | Random weather for a city |
+| GET | `/api/products?page=1&pageSize=10` | Paged random products (pageSize 1–50, 200 products total) |
+| GET | `/api/products/{id}` | A random product with the given id |
 | POST | `/api/echo` | Echoes `{ "message": "..." }` back with metadata |
 
 OpenAPI document (Development only): `/openapi/v1.json`

@@ -48,6 +48,39 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     }
 
     [Fact]
+    public async Task Products_ReturnsRequestedPage()
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<Product>>("/api/products?page=2&pageSize=5");
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(5, result.Items.Count);
+        Assert.Equal(6, result.Items[0].Id);
+    }
+
+    [Fact]
+    public async Task Products_PastLastPage_ReturnsEmptyItems()
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<Product>>("/api/products?page=100&pageSize=10");
+        Assert.Empty(result!.Items);
+    }
+
+    [Theory]
+    [InlineData("page=0")]
+    [InlineData("pageSize=51")]
+    public async Task Products_InvalidPaging_ReturnsBadRequest(string query)
+    {
+        var response = await _client.GetAsync($"/api/products?{query}");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ProductById_ReturnsRequestedId()
+    {
+        var product = await _client.GetFromJsonAsync<Product>("/api/products/12");
+        Assert.Equal(12, product!.Id);
+    }
+
+    [Fact]
     public async Task Echo_ReturnsMessageAndLength()
     {
         var response = await _client.PostAsJsonAsync("/api/echo", new EchoRequest("hello"));
