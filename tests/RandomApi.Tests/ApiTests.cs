@@ -81,6 +81,76 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     }
 
     [Fact]
+    public async Task ProductById_RepeatedRequests_ReturnSameProduct()
+    {
+        var first = await _client.GetAsync("/api/products/7");
+        var second = await _client.GetAsync("/api/products/7");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(await first.Content.ReadFromJsonAsync<Product>(), await second.Content.ReadFromJsonAsync<Product>());
+    }
+
+    [Fact]
+    public async Task Products_CategoryFilter_ReturnsOnlyThatCategory()
+    {
+        var response = await _client.GetAsync("/api/products?category=books&pageSize=50");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
+        Assert.NotNull(result);
+        Assert.All(result.Items, p => Assert.Equal("Books", p.Category));
+    }
+
+    [Fact]
+    public async Task Products_CategoryFilter_TotalCountMatchesFilteredCount()
+    {
+        var count = 0;
+        var totalCount = 0;
+        for (var page = 1; ; page++)
+        {
+            var response = await _client.GetAsync($"/api/products?category=Toys&pageSize=50&page={page}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var result = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
+            Assert.NotNull(result);
+            totalCount = result.TotalCount;
+            if (result.Items.Count == 0)
+            {
+                break;
+            }
+
+            count += result.Items.Count;
+        }
+
+        Assert.Equal(count, totalCount);
+    }
+
+    [Fact]
+    public async Task Products_UnknownCategory_ReturnsBadRequest()
+    {
+        var response = await _client.GetAsync("/api/products?category=Furniture");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("%20")]
+    public async Task Products_EmptyCategory_ReturnsUnfilteredList(string category)
+    {
+        var response = await _client.GetAsync($"/api/products?category={category}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<Product>>();
+        Assert.Equal(200, result!.TotalCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(201)]
+    public async Task ProductById_OutOfRange_ReturnsNotFound(int id)
+    {
+        var response = await _client.GetAsync($"/api/products/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Echo_ReturnsMessageAndLength()
     {
         var response = await _client.PostAsJsonAsync("/api/echo", new EchoRequest("hello"));

@@ -8,8 +8,9 @@ public interface IRandomDataService
     User GetUser(int id);
     Quote GetQuote();
     WeatherReport GetWeather(string city);
-    PagedResult<Product> GetProducts(int page, int pageSize);
-    Product GetProduct(int id);
+    IReadOnlyList<string> ProductCategories { get; }
+    PagedResult<Product> GetProducts(int page, int pageSize, string? category);
+    Product? GetProduct(int id);
 }
 
 public class RandomDataService(Random random) : IRandomDataService
@@ -27,6 +28,17 @@ public class RandomDataService(Random random) : IRandomDataService
         new("Programs must be written for people to read.", "Harold Abelson"),
         new("First, solve the problem. Then, write the code.", "John Johnson"),
     ];
+
+    private readonly Product[] _products = Enumerable.Range(1, TotalProducts)
+        .Select(id => new Product(
+            id,
+            $"{ProductNames[random.Next(ProductNames.Length)]} {id}",
+            Categories[random.Next(Categories.Length)],
+            Math.Round((decimal)(random.NextDouble() * 500 + 1), 2),
+            random.Next(0, 500)))
+        .ToArray();
+
+    public IReadOnlyList<string> ProductCategories => Categories;
 
     public IReadOnlyList<User> GetUsers(int count) =>
         Enumerable.Range(1, count).Select(_ => GetUser(random.Next(1, 10_000))).ToList();
@@ -48,21 +60,14 @@ public class RandomDataService(Random random) : IRandomDataService
     public WeatherReport GetWeather(string city) =>
         new(city, random.Next(-10, 45), Summaries[random.Next(Summaries.Length)], random.Next(10, 100), DateTimeOffset.UtcNow);
 
-    public PagedResult<Product> GetProducts(int page, int pageSize)
+    public PagedResult<Product> GetProducts(int page, int pageSize, string? category)
     {
-        var firstId = (page - 1) * pageSize + 1;
-        var items = Enumerable.Range(firstId, pageSize)
-            .Where(id => id <= TotalProducts)
-            .Select(GetProduct)
-            .ToList();
-        return new PagedResult<Product>(items, page, pageSize, TotalProducts);
+        var matching = category is null
+            ? _products
+            : _products.Where(p => string.Equals(p.Category, category, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var items = matching.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return new PagedResult<Product>(items, page, pageSize, matching.Length);
     }
 
-    public Product GetProduct(int id) =>
-        new(
-            id,
-            $"{ProductNames[random.Next(ProductNames.Length)]} {id}",
-            Categories[random.Next(Categories.Length)],
-            Math.Round((decimal)(random.NextDouble() * 500 + 1), 2),
-            random.Next(0, 500));
+    public Product? GetProduct(int id) => id is >= 1 and <= TotalProducts ? _products[id - 1] : null;
 }
