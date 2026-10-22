@@ -42,6 +42,30 @@ api.MapPost("/echo", (EchoRequest request) =>
         ? Results.BadRequest(new { error = "message is required." })
         : Results.Ok(new EchoResponse(request.Message, request.Message.Length, Guid.NewGuid(), DateTimeOffset.UtcNow)));
 
+api.MapGet("/products", (IRandomDataService data, int? page, int? pageSize, string? category) =>
+{
+    var p = page ?? 1;
+    var size = pageSize ?? 10;
+    if (p < 1 || size is < 1 or > 50)
+    {
+        return Results.BadRequest(new { error = "page must be >= 1 and pageSize between 1 and 50." });
+    }
+
+    if (string.IsNullOrWhiteSpace(category))
+    {
+        category = null;
+    }
+    else if (!data.ProductCategories.Contains(category, StringComparer.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest(new { error = $"category must be one of: {string.Join(", ", data.ProductCategories)}." });
+    }
+
+    return Results.Ok(data.GetProducts(p, size, category));
+});
+
+api.MapGet("/products/{id:int}", (IRandomDataService data, int id) =>
+    data.GetProduct(id) is { } product ? Results.Ok(product) : Results.NotFound());
+
 app.Run();
 
 public partial class Program;
